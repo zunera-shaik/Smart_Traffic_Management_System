@@ -3,6 +3,7 @@ from flask_cors import CORS
 import threading
 import time
 import random
+import os
 
 from signal_control import get_signal_plan
 from ambulance_detection import (
@@ -126,14 +127,42 @@ def api_status():
     return jsonify({"status": "running", "mode": "simulation", "last_updated": state["last_updated"]})
 
 # ─── Startup ──────────────────────────────────────────────────────────────────
+
+import os
+
 if __name__ == "__main__":
+
     print("=" * 55)
     print("  🚦 Smart Traffic Management System — API Server")
     print("  Mode: Full Simulation")
     print("=" * 55)
+
+    # Initialize database
     init_db()
+
+    # Initialize prediction system
     init_predictions()
-    threading.Thread(target=traffic_loop, daemon=True).start()
-    print("\n  API running at: http://localhost:5000")
-    print("  Frontend:        http://localhost:3000\n")
-    app.run(debug=False, host="0.0.0.0", port=5000)
+
+    # Start traffic simulation background thread
+    traffic_thread = threading.Thread(
+        target=traffic_loop,
+        daemon=True
+    )
+
+    traffic_thread.start()
+
+    # Render automatically provides PORT
+    PORT = int(os.environ.get("PORT", 5000))
+
+    print("\n" + "=" * 55)
+    print(f"  API running on port: {PORT}")
+    print("  Endpoint: /api/traffic")
+    print("  Endpoint: /api/signals")
+    print("  Endpoint: /api/predictions")
+    print("=" * 55)
+
+    app.run(
+        host="0.0.0.0",
+        port=PORT,
+        debug=False
+    )
