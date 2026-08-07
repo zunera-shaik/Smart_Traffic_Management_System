@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
-const API = "http://localhost:5000/api";
+const API = "https://smart-traffic-management-system-5r2w.onrender.com/api";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const getStateColor = (s) =>
