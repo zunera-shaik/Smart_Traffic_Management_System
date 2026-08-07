@@ -3,6 +3,7 @@ from flask_cors import CORS
 import threading
 import time
 import random
+import os
 
 from signal_control import get_signal_plan
 from ambulance_detection import (
@@ -73,67 +74,178 @@ def traffic_loop():
         time.sleep(4)
 
 # ─── API Endpoints ────────────────────────────────────────────────────────────
+
+# Home route
+@app.route("/", methods=["GET"])
+def home():
+    return jsonify({
+        "message": "🚦 Smart Traffic Management System API is running",
+        "status": "success",
+        "mode": "simulation",
+        "available_endpoints": [
+            "/api/traffic",
+            "/api/signals",
+            "/api/predictions",
+            "/api/emergency/status",
+            "/api/history",
+            "/api/events",
+            "/api/status"
+        ]
+    })
+
+
+# Traffic data endpoint
 @app.route("/api/traffic", methods=["GET"])
 def api_traffic():
     result = {}
-    for road, count in state["roads_data"].items():
-        result[road] = {"vehicles": count, "state": classify_traffic(count)}
-    return jsonify({"data": result, "last_updated": state["last_updated"]})
 
+    for road, count in state["roads_data"].items():
+        result[road] = {
+            "vehicles": count,
+            "state": classify_traffic(count)
+        }
+
+    return jsonify({
+        "data": result,
+        "last_updated": state["last_updated"]
+    })
+
+
+# Traffic signal timing endpoint
 @app.route("/api/signals", methods=["GET"])
 def api_signals():
     return jsonify({
-        "signals"     : state["signal_plan"],
-        "emergency"   : get_emergency_state(),
-        "last_updated": state["last_updated"],
+        "signals": state["signal_plan"],
+        "emergency": get_emergency_state(),
+        "last_updated": state["last_updated"]
     })
 
+
+# Traffic prediction endpoint
 @app.route("/api/predictions", methods=["GET"])
 def api_predictions():
-    return jsonify({"predictions": state["predictions"], "last_updated": state["last_updated"]})
+    return jsonify({
+        "predictions": state["predictions"],
+        "last_updated": state["last_updated"]
+    })
 
+
+# Trigger ambulance emergency
 @app.route("/api/emergency/trigger", methods=["POST"])
 def api_trigger_emergency():
-    data = request.get_json()
-    road = data.get("road") if data else None
-    if not road:
-        return jsonify({"error": "road is required"}), 400
-    ok, msg = trigger_emergency(road)
-    if ok:
-        log_event("ambulance", road, "Emergency trigger via dashboard")
-    return jsonify({"success": ok, "message": msg})
 
+    data = request.get_json()
+
+    road = data.get("road") if data else None
+
+    if not road:
+        return jsonify({
+            "error": "road is required"
+        }), 400
+
+    ok, msg = trigger_emergency(road)
+
+    if ok:
+        log_event(
+            "ambulance",
+            road,
+            "Emergency trigger via dashboard"
+        )
+
+    return jsonify({
+        "success": ok,
+        "message": msg
+    })
+
+
+# Clear emergency
 @app.route("/api/emergency/clear", methods=["POST"])
 def api_clear_emergency():
-    ok, msg = clear_emergency()
-    return jsonify({"success": ok, "message": msg})
 
+    ok, msg = clear_emergency()
+
+    return jsonify({
+        "success": ok,
+        "message": msg
+    })
+
+
+# Emergency status
 @app.route("/api/emergency/status", methods=["GET"])
 def api_emergency_status():
-    return jsonify(get_emergency_state())
 
+    return jsonify(
+        get_emergency_state()
+    )
+
+
+# Traffic history
 @app.route("/api/history", methods=["GET"])
 def api_history():
-    limit = request.args.get("limit", 50, type=int)
-    return jsonify(get_recent_traffic(limit))
 
+    limit = request.args.get(
+        "limit",
+        50,
+        type=int
+    )
+
+    return jsonify(
+        get_recent_traffic(limit)
+    )
+
+
+# Event history
 @app.route("/api/events", methods=["GET"])
 def api_events():
-    return jsonify(get_recent_events(20))
 
+    return jsonify(
+        get_recent_events(20)
+    )
+
+
+# Server health check
 @app.route("/api/status", methods=["GET"])
 def api_status():
-    return jsonify({"status": "running", "mode": "simulation", "last_updated": state["last_updated"]})
 
+    return jsonify({
+        "status": "running",
+        "mode": "simulation",
+        "last_updated": state["last_updated"]
+    })
 # ─── Startup ──────────────────────────────────────────────────────────────────
+
 if __name__ == "__main__":
+
     print("=" * 55)
     print("  🚦 Smart Traffic Management System — API Server")
     print("  Mode: Full Simulation")
     print("=" * 55)
+
+    # Initialize database
     init_db()
+
+    # Initialize prediction system
     init_predictions()
-    threading.Thread(target=traffic_loop, daemon=True).start()
-    print("\n  API running at: http://localhost:5000")
-    print("  Frontend:        http://localhost:3000\n")
-    app.run(debug=False, host="0.0.0.0", port=5000)
+
+    # Start traffic simulation background thread
+    traffic_thread = threading.Thread(
+        target=traffic_loop,
+        daemon=True
+    )
+
+    traffic_thread.start()
+
+    PORT = int(os.environ.get("PORT", 5000))
+
+    print("\n" + "=" * 55)
+    print(f"  API running on port: {PORT}")
+    print("  Endpoint: /api/traffic")
+    print("  Endpoint: /api/signals")
+    print("  Endpoint: /api/predictions")
+    print("=" * 55)
+
+    app.run(
+        host="0.0.0.0",
+        port=PORT,
+        debug=False
+    )
