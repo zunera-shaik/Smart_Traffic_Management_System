@@ -198,6 +198,33 @@ def home():
         ]
 
     })
+@app.route("/api/signals", methods=["GET"])
+def api_signals():
+
+    try:
+        print("SIGNAL API CALLED")
+
+        print("Signal plan:")
+        print(state["signal_plan"])
+
+        emergency = get_emergency_state()
+
+        print("Emergency:")
+        print(emergency)
+
+        return jsonify({
+            "signals": state["signal_plan"],
+            "emergency": emergency,
+            "last_updated": state["last_updated"]
+        })
+
+    except Exception as e:
+
+        print("SIGNALS FAILED:", repr(e))
+
+        return jsonify({
+            "error": str(e)
+        }), 500
 
 
 
